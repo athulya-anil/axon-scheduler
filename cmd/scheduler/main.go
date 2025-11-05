@@ -1,7 +1,16 @@
 package main
 
-import "fmt"
+import (
+    "log"
+    "os"
+
+    "github.com/athulya-anil/axon-scheduler/pkg/leader"
+)
 
 func main() {
-	fmt.Println("Axon Scheduler started...")
+    nodeID, _ := os.Hostname()
+    log.Printf("🚀 Axon Scheduler starting on node %s...", nodeID)
+
+    leader.ElectLeader(nodeID)
 }
+
