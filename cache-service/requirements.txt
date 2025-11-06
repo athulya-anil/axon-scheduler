@@ -2,4 +2,4 @@ fastapi
 uvicorn
 sentence-transformers
 faiss-cpu
-numpy
+numpy<2
