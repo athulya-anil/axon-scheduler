@@ -1,79 +1,118 @@
 package main
 
 import (
-	"context"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
-	"time"
 
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/concurrency"
-
-	"github.com/athulya-anil/axon-scheduler/pkg/leader"
+	"github.com/athulya-anil/axon-scheduler/pkg/api"
+	"github.com/athulya-anil/axon-scheduler/pkg/scheduler"
+	"github.com/athulya-anil/axon-scheduler/proto/workerpb"
+	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	nodeID, _ := os.Hostname()
-	log.Printf("🚀 Axon Scheduler starting on node %s...\n", nodeID)
+	// Get configuration from environment or use defaults
+	nodeID := os.Getenv("NODE_ID")
+	if nodeID == "" {
+		hostname, _ := os.Hostname()
+		nodeID = "scheduler-" + hostname
+	}
 
-	// --- Connect to etcd ---
-	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{"127.0.0.1:4001"},
-		DialTimeout: 5 * time.Second,
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
+	}
+
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "9090"
+	}
+
+	etcdEndpoints := os.Getenv("ETCD_ENDPOINTS")
+	if etcdEndpoints == "" {
+		etcdEndpoints = "127.0.0.1:2379"
+	}
+
+	endpoints := strings.Split(etcdEndpoints, ",")
+
+	log.Printf("🚀 Starting Axon Scheduler %s...", nodeID)
+	log.Printf("📡 HTTP API: :%s, gRPC: :%s", httpPort, grpcPort)
+	log.Printf("🗄️  etcd endpoints: %v", endpoints)
+
+	// Create scheduler instance
+	sched, err := scheduler.NewScheduler(nodeID, endpoints)
+	if err != nil {
+		log.Fatalf("❌ Failed to create scheduler: %v", err)
+	}
+	defer sched.Stop()
+
+	// Start scheduler in background
+	go func() {
+		if err := sched.Start(); err != nil {
+			log.Fatalf("❌ Scheduler failed: %v", err)
+		}
+	}()
+
+	// Start gRPC server for worker heartbeats
+	go func() {
+		lis, err := net.Listen("tcp", ":"+grpcPort)
+		if err != nil {
+			log.Fatalf("❌ Failed to listen on gRPC port: %v", err)
+		}
+
+		grpcServer := grpc.NewServer()
+		workerpb.RegisterWorkerServiceServer(grpcServer, sched)
+
+		log.Printf("🎧 gRPC server listening on port %s", grpcPort)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("❌ gRPC server failed: %v", err)
+		}
+	}()
+
+	// Set up HTTP API with Gin
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
+
+	// CORS middleware for testing
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
 	})
-	if err != nil {
-		log.Fatalf("❌ Failed to connect to etcd: %v", err)
-	}
-	defer cli.Close()
 
-	// --- Create a lease manager for leadership heartbeat ---
-	lease := &leader.LeaseManager{Client: cli}
-	if err := lease.CreateLease(10); err != nil {
-		log.Fatalf("❌ Failed to create lease: %v", err)
-	}
-	lease.KeepAlive()
+	// Register API routes
+	apiHandler := api.NewAPI(sched)
+	apiHandler.SetupRoutes(router)
 
-	// --- Start a session for leader election ---
-	session, err := concurrency.NewSession(cli,
-		concurrency.WithTTL(10),
-		concurrency.WithLease(lease.LeaseID))
-	if err != nil {
-		log.Fatalf("❌ Failed to create election session: %v", err)
-	}
-	defer session.Close()
+	// Start HTTP server in background
+	go func() {
+		log.Printf("🌐 HTTP API server listening on port %s", httpPort)
+		if err := router.Run(":" + httpPort); err != nil {
+			log.Fatalf("❌ HTTP server failed: %v", err)
+		}
+	}()
 
-	election := concurrency.NewElection(session, "/axon-leader-election")
+	log.Printf("✅ Scheduler %s ready and running", nodeID)
 
-	ctx := context.Background()
-
-	// --- Attempt to become leader ---
-	if err := election.Campaign(ctx, nodeID); err != nil {
-		log.Fatalf("❌ Election campaign failed: %v", err)
-	}
-	log.Printf("🏆 Node %s has become the leader!\n", nodeID)
-
-	// --- Graceful shutdown handling ---
+	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	go func() {
-		<-stop
-		log.Println("🛑 Caught shutdown signal, resigning leadership...")
-		lease.Revoke()
-		if err := election.Resign(ctx); err != nil {
-			log.Printf("⚠️  Failed to resign election: %v", err)
-		}
-		session.Close()
-		cli.Close()
-		os.Exit(0)
-	}()
+	<-stop
 
-	// --- Simulate ongoing leader work ---
-	for {
-		log.Println("🧭 Leader is active — scheduling jobs...")
-		time.Sleep(5 * time.Second)
-	}
+	log.Printf("🛑 Shutting down scheduler %s...", nodeID)
+	log.Println("👋 Scheduler stopped")
 }
 

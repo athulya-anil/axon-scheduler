@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+// The package name for this proto
+package workerpb;
+
+// This tells Go where to place the generated code
+option go_package = "github.com/athulya-anil/axon-scheduler/proto/workerpb";
+
+// WorkerService defines RPC methods for communication
+// between scheduler and worker nodes.
+service WorkerService {
+  // Worker sends periodic heartbeat messages to scheduler
+  rpc SendHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // Scheduler assigns a job to the worker
+  rpc SubmitJob(JobRequest) returns (JobResponse);
+}
+
+// HeartbeatRequest is sent by a worker to indicate it's alive
+message HeartbeatRequest {
+  string worker_id = 1;  // Unique worker ID
+  int64 timestamp = 2;   // Unix timestamp of the heartbeat
+}
+
+// HeartbeatResponse acknowledges a heartbeat from a worker
+message HeartbeatResponse {
+  bool acknowledged = 1; // Whether the heartbeat was accepted
+}
+
+// JobRequest contains the job assignment from scheduler
+message JobRequest {
+  string job_id = 1;     // Unique job ID
+  string worker_id = 2;  // ID of assigned worker
+  string payload = 3;    // Job details (JSON or plain text)
+}
+
+// JobResponse contains results sent back by worker
+message JobResponse {
+  bool success = 1;      // True if job completed successfully
+  string message = 2;    // Optional message or error info
+}
+
