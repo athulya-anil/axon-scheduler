@@ -32,6 +32,7 @@ type Job struct {
 	MaxRetries  int
 	DependsOn   []string
 	WorkerID    string
+	Timeout     time.Duration // Maximum execution time (0 = no timeout)
 }
 
 // ------------------------------
@@ -135,5 +136,17 @@ func (pq *PriorityQueue) Len() int {
 	pq.mu.RLock()
 	defer pq.mu.RUnlock()
 	return pq.heap.Len()
+}
+
+// GetAll returns all jobs currently tracked (including those in heap and assigned)
+func (pq *PriorityQueue) GetAll() []*Job {
+	pq.mu.RLock()
+	defer pq.mu.RUnlock()
+
+	jobs := make([]*Job, 0, len(pq.index))
+	for _, job := range pq.index {
+		jobs = append(jobs, job)
+	}
+	return jobs
 }
 

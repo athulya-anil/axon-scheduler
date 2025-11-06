@@ -56,8 +56,8 @@ func main() {
 		}
 	}()
 
-	// Start heartbeat sender
-	heartbeat := worker.NewHeartbeatSender(workerID, schedulerAddr, 5*time.Second)
+	// Start heartbeat sender with active jobs tracking
+	heartbeat := worker.NewHeartbeatSender(workerID, schedulerAddr, 5*time.Second, w.GetActiveJobs)
 	if err := heartbeat.Start(); err != nil {
 		log.Printf("⚠️ Failed to start heartbeat sender: %v", err)
 	}

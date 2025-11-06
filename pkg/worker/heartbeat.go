@@ -19,10 +19,11 @@ type HeartbeatSender struct {
 	conn          *grpc.ClientConn
 	ctx           context.Context
 	cancel        context.CancelFunc
+	getActiveJobs func() []string // Function to get active job IDs from worker
 }
 
 // NewHeartbeatSender creates a new heartbeat sender
-func NewHeartbeatSender(workerID, schedulerAddr string, interval time.Duration) *HeartbeatSender {
+func NewHeartbeatSender(workerID, schedulerAddr string, interval time.Duration, getActiveJobs func() []string) *HeartbeatSender {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &HeartbeatSender{
@@ -31,6 +32,7 @@ func NewHeartbeatSender(workerID, schedulerAddr string, interval time.Duration) 
 		interval:      interval,
 		ctx:           ctx,
 		cancel:        cancel,
+		getActiveJobs: getActiveJobs,
 	}
 }
 
@@ -89,9 +91,16 @@ func (h *HeartbeatSender) sendHeartbeat() error {
 	ctx, cancel := context.WithTimeout(h.ctx, 3*time.Second)
 	defer cancel()
 
+	// Get active jobs from worker
+	var activeJobs []string
+	if h.getActiveJobs != nil {
+		activeJobs = h.getActiveJobs()
+	}
+
 	req := &workerpb.HeartbeatRequest{
-		WorkerId:  h.workerID,
-		Timestamp: time.Now().Unix(),
+		WorkerId:     h.workerID,
+		Timestamp:    time.Now().Unix(),
+		ActiveJobIds: activeJobs,
 	}
 
 	resp, err := h.client.SendHeartbeat(ctx, req)
@@ -100,7 +109,7 @@ func (h *HeartbeatSender) sendHeartbeat() error {
 	}
 
 	if resp.GetAcknowledged() {
-		log.Printf("[HB] Worker %s heartbeat acknowledged by scheduler", h.workerID)
+		log.Printf("[HB] Worker %s heartbeat acknowledged by scheduler (active jobs: %d)", h.workerID, len(activeJobs))
 	}
 
 	return nil

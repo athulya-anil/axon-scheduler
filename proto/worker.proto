@@ -18,8 +18,9 @@ service WorkerService {
 
 // HeartbeatRequest is sent by a worker to indicate it's alive
 message HeartbeatRequest {
-  string worker_id = 1;  // Unique worker ID
-  int64 timestamp = 2;   // Unix timestamp of the heartbeat
+  string worker_id = 1;     // Unique worker ID
+  int64 timestamp = 2;      // Unix timestamp of the heartbeat
+  repeated string active_job_ids = 3;  // IDs of currently running jobs
 }
 
 // HeartbeatResponse acknowledges a heartbeat from a worker

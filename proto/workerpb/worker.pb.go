@@ -26,8 +26,9 @@ const (
 // HeartbeatRequest is sent by a worker to indicate it's alive
 type HeartbeatRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"` // Unique worker ID
-	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`              // Unix timestamp of the heartbeat
+	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`               // Unique worker ID
+	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                            // Unix timestamp of the heartbeat
+	ActiveJobIds  []string               `protobuf:"bytes,3,rep,name=active_job_ids,json=activeJobIds,proto3" json:"active_job_ids,omitempty"` // IDs of currently running jobs
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -74,6 +75,13 @@ func (x *HeartbeatRequest) GetTimestamp() int64 {
 		return x.Timestamp
 	}
 	return 0
+}
+
+func (x *HeartbeatRequest) GetActiveJobIds() []string {
+	if x != nil {
+		return x.ActiveJobIds
+	}
+	return nil
 }
 
 // HeartbeatResponse acknowledges a heartbeat from a worker
@@ -239,10 +247,11 @@ var File_proto_worker_proto protoreflect.FileDescriptor
 
 const file_proto_worker_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/worker.proto\x12\bworkerpb\"M\n" +
+	"\x12proto/worker.proto\x12\bworkerpb\"s\n" +
 	"\x10HeartbeatRequest\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12\x1c\n" +
-	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\"7\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12$\n" +
+	"\x0eactive_job_ids\x18\x03 \x03(\tR\factiveJobIds\"7\n" +
 	"\x11HeartbeatResponse\x12\"\n" +
 	"\facknowledged\x18\x01 \x01(\bR\facknowledged\"Z\n" +
 	"\n" +

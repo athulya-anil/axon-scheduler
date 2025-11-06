@@ -41,11 +41,12 @@ func (a *API) SetupRoutes(router *gin.Engine) {
 
 // JobSubmitRequest represents the payload for submitting a job
 type JobSubmitRequest struct {
-	Type       string            `json:"type" binding:"required"`
-	Payload    map[string]string `json:"payload"`
-	Priority   int               `json:"priority"`
-	MaxRetries int               `json:"max_retries"`
-	DependsOn  []string          `json:"depends_on"`
+	Type          string            `json:"type" binding:"required"`
+	Payload       map[string]string `json:"payload"`
+	Priority      int               `json:"priority"`
+	MaxRetries    int               `json:"max_retries"`
+	DependsOn     []string          `json:"depends_on"`
+	TimeoutSeconds int              `json:"timeout_seconds"` // Job timeout in seconds (0 = no timeout)
 }
 
 // WorkerRegisterRequest represents the payload for worker registration
@@ -74,11 +75,17 @@ func (a *API) submitJob(c *gin.Context) {
 		CreatedAt:  time.Now(),
 		MaxRetries: req.MaxRetries,
 		DependsOn:  req.DependsOn,
+		Timeout:    time.Duration(req.TimeoutSeconds) * time.Second,
 	}
 
 	// Set default max retries if not specified
 	if job.MaxRetries == 0 {
 		job.MaxRetries = 3
+	}
+
+	// Set default timeout if not specified (5 minutes)
+	if job.Timeout == 0 {
+		job.Timeout = 5 * time.Minute
 	}
 
 	// Submit to scheduler

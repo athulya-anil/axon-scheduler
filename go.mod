@@ -1,11 +1,11 @@
 module github.com/athulya-anil/axon-scheduler
 
-go 1.25.1
+go 1.24
 
 require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
-	go.etcd.io/etcd/client/v3 v3.6.5
+	go.etcd.io/etcd/client/v3 v3.5.10
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.9
 )

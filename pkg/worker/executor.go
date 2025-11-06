@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -25,6 +26,24 @@ func (w *Worker) executeJob(jobID, payload string) error {
 
 	log.Printf("[DONE] Worker %s completed job %s in %v", w.ID, jobID, executionTime)
 	return nil
+}
+
+// executeJobWithTimeout executes a job with a timeout
+func (w *Worker) executeJobWithTimeout(ctx context.Context, jobID, payload string) error {
+	done := make(chan error, 1)
+
+	// Execute job in goroutine
+	go func() {
+		done <- w.executeJob(jobID, payload)
+	}()
+
+	// Wait for completion or timeout
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("job timed out after %v", ctx.Err())
+	}
 }
 
 // ExecuteJobWithRetry executes a job with exponential backoff retry logic

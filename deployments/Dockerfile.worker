@@ -1,5 +1,30 @@
-FROM golang:1.22-alpine
+# Build stage
+FROM golang:1.23-alpine AS builder
 WORKDIR /app
+
+# Set GOTOOLCHAIN to auto to allow downloading required Go version
+ENV GOTOOLCHAIN=auto
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
 COPY . .
-RUN go mod tidy && go build -o worker cmd/worker/main.go
+
+# Build the worker
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o worker ./cmd/worker
+
+# Runtime stage
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/worker .
+
+# Expose gRPC port
+EXPOSE 50051
+
+# Run the worker
 CMD ["./worker"]

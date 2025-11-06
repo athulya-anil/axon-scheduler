@@ -283,13 +283,8 @@ func (s *Scheduler) GetJob(jobID string) *queue.Job {
 
 // ListJobs returns all jobs (for API/dashboard)
 func (s *Scheduler) ListJobs() []*queue.Job {
-	// This is a simplified version - in production you'd want pagination
-	// For now, return jobs from the queue
-	jobs := []*queue.Job{}
-
-	// We can't easily iterate the heap, so this is a placeholder
-	// In a real implementation, you'd maintain a separate map of all jobs
-	return jobs
+	// Get all jobs from the queue's index
+	return s.queue.GetAll()
 }
 
 // ListWorkers returns all registered workers
@@ -313,8 +308,9 @@ func (s *Scheduler) GetQueueLength() int {
 func (s *Scheduler) SendHeartbeat(ctx context.Context, req *workerpb.HeartbeatRequest) (*workerpb.HeartbeatResponse, error) {
 	workerID := req.GetWorkerId()
 
-	// Update worker heartbeat
-	s.workers.Heartbeat(workerID, []string{}) // TODO: Get active jobs from request
+	// Update worker heartbeat with active jobs from the request
+	activeJobs := req.GetActiveJobIds()
+	s.workers.Heartbeat(workerID, activeJobs)
 
 	return &workerpb.HeartbeatResponse{
 		Acknowledged: true,
