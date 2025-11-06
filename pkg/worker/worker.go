@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/athulya-anil/axon-scheduler/pkg/cache"
 	"github.com/athulya-anil/axon-scheduler/proto/workerpb"
 	"google.golang.org/grpc"
 )
@@ -18,6 +19,7 @@ type Worker struct {
 	Capacity      int // Max concurrent jobs
 	schedulerAddr string
 	grpcServer    *grpc.Server
+	cacheClient   *cache.CacheClient
 
 	mu         sync.RWMutex
 	activeJobs map[string]bool // Job IDs currently being executed
@@ -28,13 +30,20 @@ type Worker struct {
 }
 
 // NewWorker creates a new worker instance
-func NewWorker(id string, capacity int, schedulerAddr string) *Worker {
+func NewWorker(id string, capacity int, schedulerAddr string, cacheAddr string) *Worker {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	var cacheClient *cache.CacheClient
+	if cacheAddr != "" {
+		cacheClient = cache.NewCacheClient(cacheAddr)
+		log.Printf("[WORKER] Cache client initialized: %s", cacheAddr)
+	}
 
 	return &Worker{
 		ID:            id,
 		Capacity:      capacity,
 		schedulerAddr: schedulerAddr,
+		cacheClient:   cacheClient,
 		activeJobs:    make(map[string]bool),
 		ctx:           ctx,
 		cancel:        cancel,

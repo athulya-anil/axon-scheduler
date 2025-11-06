@@ -8,20 +8,43 @@ import (
 	"time"
 )
 
-// executeJob executes a job with simulated work
-// In Phase 2, this will integrate with the cache service
+// executeJob executes a job with semantic cache integration
 func (w *Worker) executeJob(jobID, payload string) error {
 	log.Printf("[EXEC] Worker %s executing job %s (payload: %s)", w.ID, jobID, payload)
 
+	// Check cache first if cache client is available
+	if w.cacheClient != nil {
+		cacheResult, err := w.cacheClient.Search(payload)
+		if err == nil && cacheResult.Hit {
+			log.Printf("[CACHE HIT] Worker %s found cached result for job %s (similarity: %.2f%%)",
+				w.ID, jobID, *cacheResult.Similarity*100)
+			// Return immediately - result already exists in cache
+			return nil
+		} else if err == nil {
+			log.Printf("[CACHE MISS] Worker %s executing job %s", w.ID, jobID)
+		}
+	}
+
 	// Simulate job execution time (1-3 seconds)
 	executionTime := time.Duration(1+rand.Intn(3)) * time.Second
-
-	// Sleep to simulate work
 	time.Sleep(executionTime)
 
 	// Simulate 10% failure rate for testing retry logic
 	if rand.Float32() < 0.1 {
 		return fmt.Errorf("simulated job failure")
+	}
+
+	// Generate result
+	result := fmt.Sprintf("Job %s completed successfully at %s", jobID, time.Now().Format(time.RFC3339))
+
+	// Store result in cache if cache client is available
+	if w.cacheClient != nil {
+		err := w.cacheClient.Add(payload, result, 3600) // 1 hour TTL
+		if err != nil {
+			log.Printf("[CACHE WARN] Failed to cache result: %v", err)
+		} else {
+			log.Printf("[CACHE] Worker %s cached result for job %s", w.ID, jobID)
+		}
 	}
 
 	log.Printf("[DONE] Worker %s completed job %s in %v", w.ID, jobID, executionTime)

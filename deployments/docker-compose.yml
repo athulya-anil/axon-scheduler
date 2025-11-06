@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  # Semantic cache service
+  cache:
+    build:
+      context: ../cache-service
+      dockerfile: Dockerfile
+    container_name: axon-cache
+    ports:
+      - "8000:8000"
+    networks:
+      - axon-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # etcd for leader election and distributed coordination
   etcd:
     image: quay.io/coreos/etcd:v3.5.9
@@ -96,12 +113,16 @@ services:
       - WORKER_ID=worker-1
       - WORKER_PORT=50051
       - SCHEDULER_ADDR=scheduler-1:9090
+      - CACHE_ADDR=http://cache:8000
     ports:
       - "50051:50051"
     networks:
       - axon-network
     depends_on:
-      - scheduler-1
+      cache:
+        condition: service_healthy
+      scheduler-1:
+        condition: service_started
     restart: unless-stopped
 
   worker-2:
@@ -113,11 +134,13 @@ services:
       - WORKER_ID=worker-2
       - WORKER_PORT=50051
       - SCHEDULER_ADDR=scheduler-1:9090
+      - CACHE_ADDR=http://cache:8000
     ports:
       - "50052:50051"
     networks:
       - axon-network
     depends_on:
+      - cache
       - scheduler-1
     restart: unless-stopped
 
@@ -130,11 +153,13 @@ services:
       - WORKER_ID=worker-3
       - WORKER_PORT=50051
       - SCHEDULER_ADDR=scheduler-1:9090
+      - CACHE_ADDR=http://cache:8000
     ports:
       - "50053:50051"
     networks:
       - axon-network
     depends_on:
+      - cache
       - scheduler-1
     restart: unless-stopped
 
@@ -147,11 +172,13 @@ services:
       - WORKER_ID=worker-4
       - WORKER_PORT=50051
       - SCHEDULER_ADDR=scheduler-1:9090
+      - CACHE_ADDR=http://cache:8000
     ports:
       - "50054:50051"
     networks:
       - axon-network
     depends_on:
+      - cache
       - scheduler-1
     restart: unless-stopped
 
@@ -164,11 +191,13 @@ services:
       - WORKER_ID=worker-5
       - WORKER_PORT=50051
       - SCHEDULER_ADDR=scheduler-1:9090
+      - CACHE_ADDR=http://cache:8000
     ports:
       - "50055:50051"
     networks:
       - axon-network
     depends_on:
+      - cache
       - scheduler-1
     restart: unless-stopped
 

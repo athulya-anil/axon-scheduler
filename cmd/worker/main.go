@@ -31,13 +31,19 @@ func main() {
 		schedulerAddr = "localhost:8080"
 	}
 
+	cacheAddr := os.Getenv("CACHE_ADDR")
+	if cacheAddr == "" {
+		cacheAddr = "http://localhost:8000"
+	}
+
 	capacity := 5 // Max concurrent jobs - can be made configurable
 
 	log.Printf("🚀 Starting Axon Worker %s on port %s...", workerID, port)
 	log.Printf("📡 Scheduler address: %s", schedulerAddr)
+	log.Printf("💾 Cache address: %s", cacheAddr)
 
 	// Create worker instance
-	w := worker.NewWorker(workerID, capacity, schedulerAddr)
+	w := worker.NewWorker(workerID, capacity, schedulerAddr, cacheAddr)
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", ":"+port)
