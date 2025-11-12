@@ -1,0 +1,136 @@
+{{define "content"}}
+<div class="space-y-8">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-900">Dashboard Overview</h2>
+            <p class="mt-1 text-sm text-gray-500">Monitor your distributed job scheduler cluster</p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse-slow"></div>
+            <span class="text-sm text-gray-600">Live updates</span>
+        </div>
+    </div>
+
+    <!-- Cluster Status Panel with Real-time Updates -->
+    <div hx-get="/api/dashboard/status"
+         hx-trigger="load, every 2s"
+         hx-swap="innerHTML">
+        <div id="status-panel" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Loading state -->
+            <div class="bg-white rounded-lg shadow p-6 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Submission Form -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Submit New Job</h3>
+        <form hx-post="/jobs"
+              hx-target="#job-submit-result"
+              hx-swap="innerHTML"
+              class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
+                    <input type="text"
+                           name="type"
+                           required
+                           placeholder="e.g., data-processing"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority (0-10)</label>
+                    <input type="number"
+                           name="priority"
+                           min="0"
+                           max="10"
+                           value="5"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Max Retries</label>
+                    <input type="number"
+                           name="max_retries"
+                           min="0"
+                           max="5"
+                           value="3"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Payload (JSON)</label>
+                <textarea name="payload"
+                          rows="3"
+                          placeholder='{"key": "value", "data": "example"}'
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"></textarea>
+            </div>
+            <div class="flex items-center justify-between">
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                    Submit Job
+                </button>
+                <div id="job-submit-result"></div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Recent Jobs -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Recent Jobs</h3>
+            <a href="/dashboard/jobs" class="text-sm text-blue-600 hover:text-blue-700">View all ’</a>
+        </div>
+        <div hx-get="/api/dashboard/jobs"
+             hx-trigger="load, every 3s"
+             hx-swap="innerHTML">
+            <!-- Loading state -->
+            <div class="space-y-4">
+                <div class="bg-gray-50 rounded-lg p-4 animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Workers -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Active Workers</h3>
+            <a href="/dashboard/workers" class="text-sm text-blue-600 hover:text-blue-700">View all ’</a>
+        </div>
+        <div hx-get="/api/dashboard/workers"
+             hx-trigger="load, every 3s"
+             hx-swap="innerHTML">
+            <!-- Loading state -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-50 rounded-lg p-4 animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                    <div class="h-3 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                    <div class="h-3 bg-gray-200 rounded w-3/4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

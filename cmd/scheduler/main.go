@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/athulya-anil/axon-scheduler/pkg/api"
+	"github.com/athulya-anil/axon-scheduler/pkg/dashboard"
 	"github.com/athulya-anil/axon-scheduler/pkg/scheduler"
 	"github.com/athulya-anil/axon-scheduler/proto/workerpb"
 	"github.com/gin-gonic/gin"
@@ -95,6 +96,15 @@ func main() {
 	// Register API routes
 	apiHandler := api.NewAPI(sched)
 	apiHandler.SetupRoutes(router)
+
+	// Register Dashboard routes
+	dashboardHandler, err := dashboard.NewDashboard(sched)
+	if err != nil {
+		log.Fatalf("❌ Failed to create dashboard: %v", err)
+	}
+	dashboardHandler.SetupRoutes(router)
+
+	log.Printf("📊 Dashboard available at http://localhost:%s/dashboard", httpPort)
 
 	// Start HTTP server in background
 	go func() {

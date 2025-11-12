@@ -1,0 +1,115 @@
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-900">Worker Pool</h2>
+            <p class="mt-1 text-sm text-gray-500">Monitor registered workers and their health status</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse-slow"></div>
+                <span class="text-sm text-gray-600">Live monitoring</span>
+            </div>
+            <span class="text-sm text-gray-500">Total: <span class="font-semibold text-gray-900">{{.count}}</span></span>
+        </div>
+    </div>
+
+    <!-- Worker Stats Summary -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-900">{{.count}}</div>
+                <div class="text-xs text-gray-500 uppercase">Total Workers</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-green-600">-</div>
+                <div class="text-xs text-gray-500 uppercase">Healthy</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-red-600">-</div>
+                <div class="text-xs text-gray-500 uppercase">Unhealthy</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600">-</div>
+                <div class="text-xs text-gray-500 uppercase">Active Jobs</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workers Grid with Real-time Updates -->
+    <div hx-get="/api/dashboard/workers"
+         hx-trigger="load, every 2s"
+         hx-swap="innerHTML">
+        <!-- Loading state -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-white rounded-lg shadow p-4 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
+                <div class="space-y-2">
+                    <div class="h-3 bg-gray-200 rounded w-full"></div>
+                    <div class="h-3 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
+                <div class="space-y-2">
+                    <div class="h-3 bg-gray-200 rounded w-full"></div>
+                    <div class="h-3 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 animate-pulse">
+                <div class="h-4 bg-gray-200 rounded w-2/3 mb-3"></div>
+                <div class="space-y-2">
+                    <div class="h-3 bg-gray-200 rounded w-full"></div>
+                    <div class="h-3 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Status Info -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="text-sm font-semibold text-gray-900 mb-3">Health Status Information</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Healthy</span>
+                    <span class="text-gray-600">Worker is responding to heartbeats</span>
+                </div>
+                <p class="text-gray-500 text-xs ml-8">Last heartbeat received within 15 seconds</p>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Unhealthy</span>
+                    <span class="text-gray-600">Worker has stopped responding</span>
+                </div>
+                <p class="text-gray-500 text-xs ml-8">No heartbeat received for over 15 seconds</p>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-200">
+            <p class="text-xs text-gray-600">
+                <strong>Note:</strong> Workers send heartbeats every 5 seconds. If a worker fails to send 3 consecutive heartbeats,
+                it is marked as unhealthy and its jobs are reassigned to other workers.
+            </p>
+        </div>
+    </div>
+
+    <!-- Worker Registration Instructions -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-blue-900 mb-2">Register a New Worker</h4>
+        <p class="text-sm text-blue-800 mb-3">To register a new worker, send a POST request to the worker registration endpoint:</p>
+        <div class="bg-white rounded border border-blue-300 p-3 font-mono text-xs overflow-x-auto">
+            <pre>curl -X POST http://localhost:8080/workers/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "worker-1",
+    "address": "localhost:50051",
+    "capacity": 10
+  }'</pre>
+        </div>
+    </div>
+</div>
+{{end}}
