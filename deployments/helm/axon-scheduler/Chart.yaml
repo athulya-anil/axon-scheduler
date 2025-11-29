@@ -1,0 +1,17 @@
+apiVersion: v2
+name: axon-scheduler
+description: A production-grade distributed job scheduler with semantic caching and leader election
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - distributed-systems
+  - job-scheduler
+  - etcd
+  - grpc
+  - semantic-cache
+maintainers:
+  - name: Axon Team
+    email: team@axon.dev
+sources:
+  - https://github.com/athulya-anil/axon-scheduler

@@ -1,0 +1,97 @@
+---
+# ServiceMonitor for Prometheus (requires Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: axon-scheduler-monitor
+  namespace: axon-scheduler
+  labels:
+    app: axon-scheduler
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: axon-scheduler
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+
+---
+# ServiceMonitor for Workers
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: axon-worker-monitor
+  namespace: axon-scheduler
+  labels:
+    app: axon-worker
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: axon-worker
+  endpoints:
+  - port: grpc
+    interval: 30s
+    path: /metrics
+
+---
+# PrometheusRule for Alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: axon-alerts
+  namespace: axon-scheduler
+  labels:
+    app: axon-scheduler
+    release: prometheus
+spec:
+  groups:
+  - name: axon-scheduler
+    interval: 30s
+    rules:
+    - alert: SchedulerDown
+      expr: up{job="axon-scheduler"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Axon Scheduler is down"
+        description: "Scheduler {{ $labels.instance }} has been down for more than 5 minutes."
+
+    - alert: NoLeaderElected
+      expr: sum(axon_scheduler_is_leader) == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "No scheduler leader elected"
+        description: "No scheduler instance has been elected as leader for 2 minutes."
+
+    - alert: HighQueueLength
+      expr: axon_scheduler_queue_length > 100
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High job queue length"
+        description: "Job queue has {{ $value }} jobs pending for more than 5 minutes."
+
+    - alert: WorkerUnhealthy
+      expr: axon_worker_healthy == 0
+      for: 3m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Worker unhealthy"
+        description: "Worker {{ $labels.worker_id }} has been unhealthy for 3 minutes."
+
+    - alert: LowCacheHitRate
+      expr: rate(axon_cache_hits[5m]) / (rate(axon_cache_hits[5m]) + rate(axon_cache_misses[5m])) < 0.3
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Low cache hit rate"
+        description: "Cache hit rate is {{ $value | humanizePercentage }} over the last 5 minutes."

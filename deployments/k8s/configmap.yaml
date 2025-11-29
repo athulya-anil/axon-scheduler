@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: axon-config
+  namespace: axon-scheduler
+data:
+  # Scheduler configuration
+  HTTP_PORT: "8080"
+  GRPC_PORT: "9090"
+  ETCD_ENDPOINTS: "axon-etcd-0.axon-etcd:2379,axon-etcd-1.axon-etcd:2379,axon-etcd-2.axon-etcd:2379"
+
+  # Worker configuration
+  WORKER_PORT: "50051"
+  WORKER_CAPACITY: "5"
+  CACHE_ADDR: "http://axon-cache:8000"
+
+  # Cache configuration
+  REDIS_HOST: "localhost"
+  REDIS_PORT: "6379"
+  CACHE_TTL: "3600"
+  SIMILARITY_THRESHOLD: "0.85"

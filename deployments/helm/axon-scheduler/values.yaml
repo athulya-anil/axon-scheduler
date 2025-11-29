@@ -1,0 +1,161 @@
+# Default values for axon-scheduler
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Namespace configuration
+namespace: axon-scheduler
+
+# etcd configuration
+etcd:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: quay.io/coreos/etcd
+    tag: v3.5.9
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    storageClass: ""  # Use default storage class
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Scheduler configuration
+scheduler:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: axon-scheduler
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: LoadBalancer
+    httpPort: 8080
+    grpcPort: 9090
+  config:
+    etcdEndpoints: "axon-etcd-0.axon-etcd:2379,axon-etcd-1.axon-etcd:2379,axon-etcd-2.axon-etcd:2379"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# Worker configuration
+worker:
+  enabled: true
+  replicaCount: 5
+  image:
+    repository: axon-worker
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 50051
+  config:
+    capacity: 5
+    schedulerAddr: "axon-scheduler:9090"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+# Cache service configuration
+cache:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: axon-cache
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8000
+  config:
+    ttl: 3600
+    similarityThreshold: 0.85
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+# Redis configuration (cache backend)
+redis:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: axon.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # tls:
+  #   - secretName: axon-tls-secret
+  #     hosts:
+  #       - axon.yourdomain.com
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  prometheusRule:
+    enabled: true
+
+# Security
+podSecurityContext:
+  runAsNonRoot: false
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false

@@ -1,0 +1,94 @@
+---
+# Worker Service (Headless)
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-worker
+  namespace: axon-scheduler
+  labels:
+    app: axon-worker
+spec:
+  clusterIP: None
+  ports:
+  - port: 50051
+    targetPort: 50051
+    name: grpc
+  selector:
+    app: axon-worker
+
+---
+# Worker Deployment (5 replicas)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-worker
+  namespace: axon-scheduler
+  labels:
+    app: axon-worker
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: axon-worker
+  template:
+    metadata:
+      labels:
+        app: axon-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "50051"
+    spec:
+      containers:
+      - name: worker
+        image: axon-worker:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 50051
+          name: grpc
+        env:
+        - name: WORKER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WORKER_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: WORKER_PORT
+        - name: WORKER_CAPACITY
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: WORKER_CAPACITY
+        - name: SCHEDULER_ADDR
+          value: "axon-scheduler:9090"
+        - name: CACHE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: CACHE_ADDR
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "grpc_health_probe -addr=:50051 || exit 0"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "grpc_health_probe -addr=:50051 || exit 0"
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3

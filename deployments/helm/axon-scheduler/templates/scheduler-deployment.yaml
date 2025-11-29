@@ -1,0 +1,84 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-scheduler
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-scheduler
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.scheduler.service.type }}
+  ports:
+  - port: {{ .Values.scheduler.service.httpPort }}
+    targetPort: {{ .Values.scheduler.service.httpPort }}
+    name: http
+  - port: {{ .Values.scheduler.service.grpcPort }}
+    targetPort: {{ .Values.scheduler.service.grpcPort }}
+    name: grpc
+  selector:
+    app: axon-scheduler
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-scheduler
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-scheduler
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.scheduler.replicaCount }}
+  selector:
+    matchLabels:
+      app: axon-scheduler
+  template:
+    metadata:
+      labels:
+        app: axon-scheduler
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.scheduler.service.httpPort }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: scheduler
+        image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
+        imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.scheduler.service.httpPort }}
+          name: http
+        - containerPort: {{ .Values.scheduler.service.grpcPort }}
+          name: grpc
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: HTTP_PORT
+          value: "{{ .Values.scheduler.service.httpPort }}"
+        - name: GRPC_PORT
+          value: "{{ .Values.scheduler.service.grpcPort }}"
+        - name: ETCD_ENDPOINTS
+          value: "{{ .Values.scheduler.config.etcdEndpoints }}"
+        - name: CACHE_ADDR
+          value: "http://axon-cache:{{ .Values.cache.service.port }}"
+        resources:
+          {{- toYaml .Values.scheduler.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.scheduler.service.httpPort }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.scheduler.service.httpPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+{{- end }}

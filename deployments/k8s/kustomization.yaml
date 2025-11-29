@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: axon-scheduler
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - etcd.yaml
+  - cache.yaml
+  - scheduler.yaml
+  - worker.yaml
+  - ingress.yaml
+  - monitoring.yaml
+
+commonLabels:
+  app.kubernetes.io/name: axon-scheduler
+  app.kubernetes.io/part-of: axon
+
+images:
+  - name: axon-scheduler
+    newTag: latest
+  - name: axon-worker
+    newTag: latest
+  - name: axon-cache
+    newTag: latest

@@ -1,0 +1,120 @@
+---
+# Scheduler Service (LoadBalancer for external access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-scheduler
+  namespace: axon-scheduler
+  labels:
+    app: axon-scheduler
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  - port: 9090
+    targetPort: 9090
+    name: grpc
+  selector:
+    app: axon-scheduler
+
+---
+# Scheduler Headless Service for gRPC communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-scheduler-headless
+  namespace: axon-scheduler
+  labels:
+    app: axon-scheduler
+spec:
+  clusterIP: None
+  ports:
+  - port: 9090
+    targetPort: 9090
+    name: grpc
+  selector:
+    app: axon-scheduler
+
+---
+# Scheduler Deployment (3 replicas for HA)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-scheduler
+  namespace: axon-scheduler
+  labels:
+    app: axon-scheduler
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: axon-scheduler
+  template:
+    metadata:
+      labels:
+        app: axon-scheduler
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: scheduler
+        image: axon-scheduler:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: grpc
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: HTTP_PORT
+        - name: GRPC_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: GRPC_PORT
+        - name: ETCD_ENDPOINTS
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: ETCD_ENDPOINTS
+        - name: CACHE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: CACHE_ADDR
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3

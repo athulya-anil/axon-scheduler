@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: axon-config
+  namespace: {{ .Values.namespace }}
+data:
+  HTTP_PORT: "{{ .Values.scheduler.service.httpPort }}"
+  GRPC_PORT: "{{ .Values.scheduler.service.grpcPort }}"
+  ETCD_ENDPOINTS: "{{ .Values.scheduler.config.etcdEndpoints }}"
+  WORKER_PORT: "{{ .Values.worker.service.port }}"
+  WORKER_CAPACITY: "{{ .Values.worker.config.capacity }}"
+  CACHE_ADDR: "http://axon-cache:{{ .Values.cache.service.port }}"
+  REDIS_HOST: "axon-redis"
+  REDIS_PORT: "{{ .Values.redis.service.port }}"
+  CACHE_TTL: "{{ .Values.cache.config.ttl }}"
+  SIMILARITY_THRESHOLD: "{{ .Values.cache.config.similarityThreshold }}"

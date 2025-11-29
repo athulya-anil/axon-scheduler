@@ -1,0 +1,130 @@
+{{- if .Values.cache.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-cache
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-cache
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ .Values.cache.service.port }}
+    targetPort: {{ .Values.cache.service.port }}
+    name: http
+  selector:
+    app: axon-cache
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-cache
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-cache
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.cache.replicaCount }}
+  selector:
+    matchLabels:
+      app: axon-cache
+  template:
+    metadata:
+      labels:
+        app: axon-cache
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cache
+        image: "{{ .Values.cache.image.repository }}:{{ .Values.cache.image.tag }}"
+        imagePullPolicy: {{ .Values.cache.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.cache.service.port }}
+          name: http
+        env:
+        - name: REDIS_HOST
+          value: "axon-redis"
+        - name: REDIS_PORT
+          value: "{{ .Values.redis.service.port }}"
+        - name: CACHE_TTL
+          value: "{{ .Values.cache.config.ttl }}"
+        - name: SIMILARITY_THRESHOLD
+          value: "{{ .Values.cache.config.similarityThreshold }}"
+        resources:
+          {{- toYaml .Values.cache.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.cache.service.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.cache.service.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+{{- end }}
+---
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-redis
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-redis
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ .Values.redis.service.port }}
+    targetPort: {{ .Values.redis.service.port }}
+    name: redis
+  selector:
+    app: axon-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-redis
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-redis
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.redis.replicaCount }}
+  selector:
+    matchLabels:
+      app: axon-redis
+  template:
+    metadata:
+      labels:
+        app: axon-redis
+    spec:
+      containers:
+      - name: redis
+        image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+        imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.redis.service.port }}
+          name: redis
+        resources:
+          {{- toYaml .Values.redis.resources | nindent 10 }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.redis.service.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+{{- end }}

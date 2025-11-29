@@ -1,0 +1,66 @@
+{{- if .Values.worker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-worker
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+  - port: {{ .Values.worker.service.port }}
+    targetPort: {{ .Values.worker.service.port }}
+    name: grpc
+  selector:
+    app: axon-worker
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: axon-worker
+    {{- include "axon-scheduler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app: axon-worker
+  template:
+    metadata:
+      labels:
+        app: axon-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.worker.service.port }}"
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: worker
+        image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+        imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.worker.service.port }}
+          name: grpc
+        env:
+        - name: WORKER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WORKER_PORT
+          value: "{{ .Values.worker.service.port }}"
+        - name: WORKER_CAPACITY
+          value: "{{ .Values.worker.config.capacity }}"
+        - name: SCHEDULER_ADDR
+          value: "{{ .Values.worker.config.schedulerAddr }}"
+        - name: CACHE_ADDR
+          value: "http://axon-cache:{{ .Values.cache.service.port }}"
+        resources:
+          {{- toYaml .Values.worker.resources | nindent 10 }}
+{{- end }}

@@ -1,0 +1,143 @@
+---
+# Cache Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-cache
+  namespace: axon-scheduler
+  labels:
+    app: axon-cache
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+  selector:
+    app: axon-cache
+
+---
+# Redis Deployment for Cache Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-redis
+  namespace: axon-scheduler
+  labels:
+    app: axon-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: axon-redis
+  template:
+    metadata:
+      labels:
+        app: axon-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: axon-redis
+  namespace: axon-scheduler
+  labels:
+    app: axon-redis
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: axon-redis
+
+---
+# Semantic Cache Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axon-cache
+  namespace: axon-scheduler
+  labels:
+    app: axon-cache
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: axon-cache
+  template:
+    metadata:
+      labels:
+        app: axon-cache
+    spec:
+      containers:
+      - name: cache
+        image: axon-cache:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: REDIS_HOST
+          value: "axon-redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: CACHE_TTL
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: CACHE_TTL
+        - name: SIMILARITY_THRESHOLD
+          valueFrom:
+            configMapKeyRef:
+              name: axon-config
+              key: SIMILARITY_THRESHOLD
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3

@@ -1,0 +1,32 @@
+---
+# Ingress for HTTP/Dashboard access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: axon-scheduler-ingress
+  namespace: axon-scheduler
+  labels:
+    app: axon-scheduler
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # For production, enable SSL
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: axon.local  # Change to your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: axon-scheduler
+            port:
+              number: 8080
+  # Uncomment for HTTPS in production
+  # tls:
+  # - hosts:
+  #   - axon.yourdomain.com
+  #   secretName: axon-tls-secret
