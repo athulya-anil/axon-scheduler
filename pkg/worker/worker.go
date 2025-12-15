@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/athulya-anil/axon-scheduler/pkg/cache"
+	"github.com/athulya-anil/axon-scheduler/pkg/metrics"
 	"github.com/athulya-anil/axon-scheduler/proto/workerpb"
 	"google.golang.org/grpc"
 )
@@ -105,18 +106,30 @@ func (w *Worker) SubmitJob(ctx context.Context, req *workerpb.JobRequest) (*work
 	// Mark job as active
 	w.activeJobs[jobID] = true
 	w.jobCount++
+	metrics.WorkerActiveJobs.WithLabelValues(w.ID).Set(float64(w.jobCount))
 	w.mu.Unlock()
 
 	// Execute job asynchronously
 	go func() {
-		if err := w.executeJob(jobID, req.GetPayload()); err != nil {
+		start := time.Now()
+		err := w.executeJob(jobID, req.GetPayload())
+		duration := time.Since(start).Seconds()
+
+		status := "success"
+		if err != nil {
+			status = "failed"
 			log.Printf("[ERROR] Job %s failed: %v", jobID, err)
 		}
+
+		// Record job execution metrics
+		metrics.JobExecutionDuration.WithLabelValues("unknown", status).Observe(duration)
+		metrics.JobsCompleted.WithLabelValues(status).Inc()
 
 		// Remove from active jobs
 		w.mu.Lock()
 		delete(w.activeJobs, jobID)
 		w.jobCount--
+		metrics.WorkerActiveJobs.WithLabelValues(w.ID).Set(float64(w.jobCount))
 		w.mu.Unlock()
 	}()
 

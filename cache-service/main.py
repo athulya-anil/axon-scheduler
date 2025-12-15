@@ -4,14 +4,39 @@ FastAPI-based REST API for semantic caching using sentence embeddings and FAISS.
 """
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 import uvicorn
 from contextlib import asynccontextmanager
 import asyncio
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+import time
 
 from embeddings import get_embedding_model
 from faiss_index import get_cache
+
+# Prometheus metrics
+cache_hits = Counter('axon_cache_hits', 'Total number of cache hits')
+cache_misses = Counter('axon_cache_misses', 'Total number of cache misses')
+cache_lookups = Counter('axon_cache_lookups_total', 'Total number of cache lookups')
+cache_adds = Counter('axon_cache_adds_total', 'Total number of cache additions')
+cache_size = Gauge('axon_cache_size', 'Current number of entries in cache')
+search_duration = Histogram(
+    'axon_cache_search_duration_seconds',
+    'Time spent searching the cache',
+    buckets=[.0001, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5]
+)
+add_duration = Histogram(
+    'axon_cache_add_duration_seconds',
+    'Time spent adding to the cache',
+    buckets=[.0001, .0005, .001, .0025, .005, .01, .025, .05, .1]
+)
+embedding_duration = Histogram(
+    'axon_cache_embedding_duration_seconds',
+    'Time spent generating embeddings',
+    buckets=[.001, .005, .01, .025, .05, .1, .25, .5, 1]
+)
 
 
 # Pydantic models for API
@@ -98,6 +123,19 @@ def root():
     }
 
 
+@app.get("/metrics")
+def metrics():
+    """Prometheus metrics endpoint."""
+    # Update cache size gauge before returning metrics
+    cache = get_cache()
+    cache_size.set(cache.size())
+
+    return PlainTextResponse(
+        content=generate_latest().decode('utf-8'),
+        media_type=CONTENT_TYPE_LATEST
+    )
+
+
 @app.get("/health")
 def health():
     """Detailed health check."""
@@ -128,16 +166,24 @@ def add_to_cache(request: CacheRequest):
         model = get_embedding_model()
         cache = get_cache()
 
-        # Generate embedding
+        # Generate embedding and measure time
+        start_embed = time.time()
         embedding = model.encode(request.query, normalize=True)
+        embedding_duration.observe(time.time() - start_embed)
 
-        # Add to cache
+        # Add to cache and measure time
+        start_add = time.time()
         entry_id = cache.add(
             query=request.query,
             result=request.result,
             embedding=embedding,
             ttl_seconds=request.ttl_seconds
         )
+        add_duration.observe(time.time() - start_add)
+
+        # Update metrics
+        cache_adds.inc()
+        cache_size.set(cache.size())
 
         return {
             "entry_id": entry_id,
@@ -162,20 +208,29 @@ def search_cache(request: SearchRequest):
         Cache hit information or miss
     """
     try:
+        # Increment lookup counter
+        cache_lookups.inc()
+
         # Get model and cache
         model = get_embedding_model()
         cache = get_cache()
 
-        # Generate query embedding
+        # Generate query embedding and measure time
+        start_embed = time.time()
         query_embedding = model.encode(request.query, normalize=True)
+        embedding_duration.observe(time.time() - start_embed)
 
-        # Search cache
+        # Search cache and measure time
+        start_search = time.time()
         result = cache.search(query_embedding)
+        search_duration.observe(time.time() - start_search)
 
         if result is None:
+            cache_misses.inc()
             return SearchResponse(hit=False)
 
         entry, similarity = result
+        cache_hits.inc()
 
         return SearchResponse(
             hit=True,

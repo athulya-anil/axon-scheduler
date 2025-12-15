@@ -6,6 +6,8 @@ import (
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/athulya-anil/axon-scheduler/pkg/metrics"
 )
 
 // executeJob executes a job with semantic cache integration
@@ -14,13 +16,19 @@ func (w *Worker) executeJob(jobID, payload string) error {
 
 	// Check cache first if cache client is available
 	if w.cacheClient != nil {
+		start := time.Now()
 		cacheResult, err := w.cacheClient.Search(payload)
+		lookupDuration := time.Since(start).Seconds()
+		metrics.CacheLookupDuration.Observe(lookupDuration)
+
 		if err == nil && cacheResult.Hit {
+			metrics.CacheHits.Inc()
 			log.Printf("[CACHE HIT] Worker %s found cached result for job %s (similarity: %.2f%%)",
 				w.ID, jobID, *cacheResult.Similarity*100)
 			// Return immediately - result already exists in cache
 			return nil
 		} else if err == nil {
+			metrics.CacheMisses.Inc()
 			log.Printf("[CACHE MISS] Worker %s executing job %s", w.ID, jobID)
 		}
 	}

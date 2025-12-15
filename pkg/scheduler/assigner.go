@@ -7,6 +7,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/athulya-anil/axon-scheduler/pkg/metrics"
 	"github.com/athulya-anil/axon-scheduler/pkg/models"
 	"github.com/athulya-anil/axon-scheduler/pkg/queue"
 	"github.com/athulya-anil/axon-scheduler/proto/workerpb"
@@ -102,15 +103,21 @@ func (s *Scheduler) reassignJobsFromDeadWorker(workerID string, jobIDs []string)
 		job.WorkerID = ""
 		job.Retries++
 
+		// Track retry metrics
+		metrics.JobRetries.WithLabelValues(job.Type).Inc()
+
 		// Check if max retries exceeded
 		if job.Retries > job.MaxRetries {
 			log.Printf("❌ Job %s exceeded max retries (%d)", jobID, job.MaxRetries)
 			job.Status = queue.FAILED
+			metrics.JobMaxRetriesExceeded.Inc()
+			metrics.JobsCompleted.WithLabelValues("failed").Inc()
 			continue
 		}
 
 		// Re-add to queue
 		s.queue.Push(job)
+		metrics.QueueLength.Set(float64(s.queue.Len()))
 		log.Printf("♻️ Job %s re-queued (retry %d/%d)", jobID, job.Retries, job.MaxRetries)
 	}
 }

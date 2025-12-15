@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/athulya-anil/axon-scheduler/pkg/metrics"
 	"github.com/athulya-anil/axon-scheduler/pkg/models"
 	"github.com/athulya-anil/axon-scheduler/pkg/queue"
 	"github.com/athulya-anil/axon-scheduler/proto/workerpb"
@@ -123,7 +124,9 @@ func (s *Scheduler) runLeaderElection() {
 			return
 		default:
 			// Try to become leader
+			metrics.LeaderElectionCampaigns.Inc()
 			if err := s.election.Campaign(s.ctx, s.NodeID); err != nil {
+				metrics.LeaderElectionFailures.Inc()
 				log.Printf("⚠️ Election campaign failed: %v", err)
 				time.Sleep(2 * time.Second)
 				continue
@@ -131,12 +134,16 @@ func (s *Scheduler) runLeaderElection() {
 
 			log.Printf("🏆 Node %s has become the LEADER!", s.NodeID)
 			s.IsLeader = true
+			metrics.IsLeader.Set(1)
+			metrics.LeadershipChanges.Inc()
 
 			// Run as leader
 			s.runAsLeader()
 
 			// If we get here, we lost leadership
 			s.IsLeader = false
+			metrics.IsLeader.Set(0)
+			metrics.LeadershipChanges.Inc()
 			log.Printf("⚠️ Node %s lost leadership", s.NodeID)
 		}
 	}
@@ -179,6 +186,8 @@ func (s *Scheduler) tryAssignJob() {
 	// Peek at next job
 	job := s.queue.Peek()
 	if job == nil {
+		// Update queue length metric
+		metrics.QueueLength.Set(0)
 		return // Queue empty
 	}
 
@@ -199,6 +208,12 @@ func (s *Scheduler) tryAssignJob() {
 		return // Race condition, another goroutine took it
 	}
 
+	// Update queue length metric
+	metrics.QueueLength.Set(float64(s.queue.Len()))
+
+	// Track assignment timing
+	start := time.Now()
+
 	// Assign to worker
 	if err := s.assignJobToWorker(job, worker); err != nil {
 		log.Printf("❌ Failed to assign job %s to worker %s: %v", job.ID, worker.ID, err)
@@ -206,8 +221,13 @@ func (s *Scheduler) tryAssignJob() {
 		// Put job back in queue
 		job.Status = queue.PENDING
 		s.queue.Push(job)
+		metrics.QueueLength.Set(float64(s.queue.Len()))
 		return
 	}
+
+	// Record assignment duration
+	metrics.JobAssignmentDuration.Observe(time.Since(start).Seconds())
+	metrics.JobsAssigned.WithLabelValues(worker.ID).Inc()
 
 	// Update job status
 	now := time.Now()
@@ -263,6 +283,10 @@ func (s *Scheduler) AddJob(job *queue.Job) error {
 
 	s.queue.Push(job)
 
+	// Update metrics
+	metrics.JobsSubmitted.WithLabelValues(job.Type).Inc()
+	metrics.QueueLength.Set(float64(s.queue.Len()))
+
 	return nil
 }
 
@@ -311,6 +335,9 @@ func (s *Scheduler) SendHeartbeat(ctx context.Context, req *workerpb.HeartbeatRe
 	// Update worker heartbeat with active jobs from the request
 	activeJobs := req.GetActiveJobIds()
 	s.workers.Heartbeat(workerID, activeJobs)
+
+	// Record heartbeat metric
+	metrics.WorkerHeartbeats.WithLabelValues(workerID).Inc()
 
 	return &workerpb.HeartbeatResponse{
 		Acknowledged: true,

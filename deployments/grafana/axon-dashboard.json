@@ -1,0 +1,271 @@
+{
+  "dashboard": {
+    "title": "Axon Scheduler - Production Monitoring",
+    "tags": ["axon", "scheduler", "production"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Queue Length",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "axon_scheduler_queue_length",
+            "legendFormat": "Queue Length",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Jobs"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Leader Status",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "axon_scheduler_is_leader",
+            "legendFormat": "Is Leader",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Healthy Workers",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "axon_scheduler_workers_healthy",
+            "legendFormat": "Healthy Workers",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Job Submission Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(axon_scheduler_jobs_submitted_total[5m])",
+            "legendFormat": "{{type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Jobs/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Job Completion Rate",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(axon_scheduler_jobs_completed_total[5m])",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Jobs/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": {"x": 0, "y": 16, "w": 8, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(axon_cache_hits[5m]) / (rate(axon_cache_hits[5m]) + rate(axon_cache_misses[5m]))",
+            "legendFormat": "Hit Rate",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.3, "color": "yellow"},
+                {"value": 0.6, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Cache Lookup Duration (p95)",
+        "type": "graph",
+        "gridPos": {"x": 8, "y": 16, "w": 8, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(axon_cache_lookup_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(axon_cache_lookup_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Cache Operations",
+        "type": "graph",
+        "gridPos": {"x": 16, "y": 16, "w": 8, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(axon_cache_hits[5m])",
+            "legendFormat": "Hits",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(axon_cache_misses[5m])",
+            "legendFormat": "Misses",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Operations/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Job Execution Duration (p95)",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(axon_scheduler_job_execution_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95 - {{status}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(axon_scheduler_job_execution_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50 - {{status}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Worker Active Jobs",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "axon_worker_active_jobs",
+            "legendFormat": "{{worker_id}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Active Jobs"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Leadership Changes",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 32, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "axon_leadership_changes_total",
+            "legendFormat": "Total Changes",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Job Retry Rate",
+        "type": "graph",
+        "gridPos": {"x": 6, "y": 32, "w": 9, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(axon_job_retries_total[5m])",
+            "legendFormat": "{{job_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Retries/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Max Retries Exceeded",
+        "type": "stat",
+        "gridPos": {"x": 15, "y": 32, "w": 9, "h": 4},
+        "targets": [
+          {
+            "expr": "axon_job_max_retries_exceeded_total",
+            "legendFormat": "Failed Jobs",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

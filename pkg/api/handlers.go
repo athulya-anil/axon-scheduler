@@ -9,6 +9,7 @@ import (
 	"github.com/athulya-anil/axon-scheduler/pkg/scheduler"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // API wraps the scheduler and provides HTTP handlers
@@ -37,6 +38,9 @@ func (a *API) SetupRoutes(router *gin.Engine) {
 	// Status endpoints
 	router.GET("/status", a.getStatus)
 	router.GET("/health", a.healthCheck)
+
+	// Metrics endpoint
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 }
 
 // JobSubmitRequest represents the payload for submitting a job

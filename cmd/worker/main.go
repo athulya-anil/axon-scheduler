@@ -62,6 +62,15 @@ func main() {
 		}
 	}()
 
+	// Start metrics server
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "9091"
+	}
+	if err := w.StartMetricsServer(metricsPort); err != nil {
+		log.Printf("⚠️ Failed to start metrics server: %v", err)
+	}
+
 	// Start heartbeat sender with active jobs tracking
 	heartbeat := worker.NewHeartbeatSender(workerID, schedulerAddr, 5*time.Second, w.GetActiveJobs)
 	if err := heartbeat.Start(); err != nil {
@@ -69,7 +78,7 @@ func main() {
 	}
 	defer heartbeat.Stop()
 
-	log.Printf("✅ Worker %s ready (capacity: %d)", workerID, capacity)
+	log.Printf("✅ Worker %s ready (capacity: %d, metrics: :%s)", workerID, capacity, metricsPort)
 
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)

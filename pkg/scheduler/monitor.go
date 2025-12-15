@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/athulya-anil/axon-scheduler/pkg/metrics"
 	"github.com/athulya-anil/axon-scheduler/pkg/models"
 )
 
@@ -28,6 +29,11 @@ func (r *WorkerRegistry) Register(worker *models.WorkerInfo) {
 
 	r.workers[worker.ID] = worker
 	log.Printf("🧩 Worker registered: %s (capacity: %d)", worker.ID, worker.Capacity)
+
+	// Update metrics
+	metrics.WorkersRegistered.Set(float64(len(r.workers)))
+	metrics.WorkerCapacity.WithLabelValues(worker.ID).Set(float64(worker.Capacity))
+	metrics.WorkerHealthy.WithLabelValues(worker.ID).Set(1)
 }
 
 // Heartbeat updates the last-seen time for a worker
@@ -39,6 +45,10 @@ func (r *WorkerRegistry) Heartbeat(workerID string, activeJobs []string) {
 		w.LastHeartbeat = time.Now()
 		w.CurrentJobs = activeJobs
 		w.Healthy = true
+
+		// Update metrics
+		metrics.WorkerActiveJobs.WithLabelValues(workerID).Set(float64(len(activeJobs)))
+		metrics.WorkerHealthy.WithLabelValues(workerID).Set(1)
 	} else {
 		log.Printf("⚠️ Heartbeat received from unregistered worker: %s", workerID)
 	}
@@ -66,14 +76,20 @@ func (r *WorkerRegistry) MonitorWorkers(interval time.Duration, timeout time.Dur
 	for range ticker.C {
 		now := time.Now()
 		r.mu.Lock()
+		healthyCount := 0
 		for id, w := range r.workers {
 			if now.Sub(w.LastHeartbeat) > timeout {
 				if w.Healthy {
 					w.Healthy = false
+					metrics.WorkerHealthy.WithLabelValues(id).Set(0)
 					log.Printf("💀 Worker %s marked DEAD (last heartbeat %v ago)", id, now.Sub(w.LastHeartbeat))
 				}
+			} else if w.Healthy {
+				healthyCount++
 			}
 		}
+		// Update aggregate healthy workers count
+		metrics.WorkersHealthy.Set(float64(healthyCount))
 		r.mu.Unlock()
 	}
 }
